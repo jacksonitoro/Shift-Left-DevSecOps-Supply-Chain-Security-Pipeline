@@ -10,34 +10,32 @@ RUN apk update && apk upgrade --no-cache && \
 
 COPY app/requirements.txt .
 
-# Install dependencies into isolated directory without caching build wheels
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir --prefix=/install -r requirements.txt
-
-# Remove setuptools, pip, and wheel from /install to eliminate build-tool CVE residue
-RUN rm -rf /install/lib/python3.11/site-packages/pip* \
-           /install/lib/python3.11/site-packages/setuptools* \
-           /install/lib/python3.11/site-packages/wheel* \
-           /install/lib/python3.11/site-packages/easy_install*
+# Install application dependencies into isolated target directory
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # ==========================================
-# Stage 2: Hardened Runtime
+# Stage 2: Hardened Production Runtime
 # ==========================================
 FROM python:3.11-alpine
 
 WORKDIR /app
 
-# Upgrade base packages to ensure libuuid / util-linux patches are applied
+# Upgrade OS base packages
 RUN apk update && apk upgrade --no-cache
 
-# Create non-root unprivileged service account
+# Remove default base Python build tools (setuptools, wheel, pip) from production runtime
+RUN rm -rf /usr/local/lib/python3.11/site-packages/setuptools* \
+           /usr/local/lib/python3.11/site-packages/wheel* \
+           /usr/local/lib/python3.11/site-packages/pip*
+
+# Create unprivileged application user
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
-# Copy solely the sanitized runtime dependencies and code
+# Copy solely the application dependencies and code
 COPY --from=builder /install /usr/local
 COPY --chown=appuser:appgroup ./app /app
 
-# Drop to unprivileged user
+# Drop to non-root user
 USER appuser
 
 ENV PYTHONUNBUFFERED=1
