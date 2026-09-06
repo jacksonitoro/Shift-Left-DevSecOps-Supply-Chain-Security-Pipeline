@@ -1,28 +1,34 @@
 # ==========================================
-# Stage 1: Build Environment (Debian Bookworm)
+# Stage 1: Build Environment
 # ==========================================
-FROM python:3.11-slim-bookworm AS builder
+FROM python:3.11-alpine AS builder
 
 WORKDIR /build
+
+RUN apk add --no-cache gcc musl-dev libffi-dev
 
 COPY app/requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # ==========================================
-# Stage 2: Distroless Runtime (Zero Shell)
+# Stage 2: Hardened Runtime (Non-Root User)
 # ==========================================
-FROM gcr.io/distroless/python3-debian12:nonroot
+FROM python:3.11-alpine
 
 WORKDIR /app
 
-# Copy installed dependencies and application code
-COPY --from=builder /install /usr/local
-COPY --chown=nonroot:nonroot ./app /app
+# Create a non-privileged user and group
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
-ENV PYTHONPATH="/usr/local/lib/python3.11/site-packages"
+# Copy dependencies and application code
+COPY --from=builder /install /usr/local
+COPY --chown=appuser:appgroup ./app /app
+
+# Drop root privileges
+USER appuser
+
 ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8000
 
-# Execute uvicorn via Distroless system python3 binary
-ENTRYPOINT ["/usr/bin/python3", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
