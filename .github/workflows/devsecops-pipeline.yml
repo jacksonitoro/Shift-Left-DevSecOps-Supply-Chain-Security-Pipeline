@@ -13,7 +13,6 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   security-audit:
@@ -44,6 +43,10 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Set Lowercase Image Name
+        run: |
+          echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -102,7 +105,7 @@ jobs:
       - name: Generate SPDX SBOM
         if: github.event_name != 'pull_request'
         run: |
-          syft ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest -o spdx-json=sbom.spdx.json
+          syft docker:secure-api:scan -o spdx-json=sbom.spdx.json
 
       - name: Upload SBOM as Pipeline Artifact
         if: github.event_name != 'pull_request'
@@ -118,8 +121,5 @@ jobs:
 
       - name: Cryptographically Sign Image (Keyless via OIDC)
         if: github.event_name != 'pull_request'
-        env:
-          TAGS: ${{ steps.meta.outputs.tags }}
-          COSIGN_EXPERIMENTAL: "true"
         run: |
           cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
