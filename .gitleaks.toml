@@ -1,0 +1,11 @@
+[extend]
+# Inherits standard Gitleaks rules (AWS, Azure, GitHub tokens, Private Keys, etc.)
+useDefault = true
+
+[allowlist]
+description = "Global allowlist for build artifacts and documentation"
+paths = [
+  '''^\.git/''',
+  '''^README\.md$''',
+  '''^docs/'''
+]

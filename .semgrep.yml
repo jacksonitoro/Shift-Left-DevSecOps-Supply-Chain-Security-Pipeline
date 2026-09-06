@@ -1,0 +1,15 @@
+rules:
+  - id: avoid-hardcoded-secret-keys
+    patterns:
+      - pattern-either:
+          - pattern: $SECRET = "..."
+          - pattern: $KEY = "..."
+    message: "Potential hardcoded credential detected in source code."
+    severity: ERROR
+    languages: [python]
+
+  - id: enforce-production-binding-check
+    pattern: uvicorn.run(..., host="0.0.0.0", ...)
+    message: "Binding to 0.0.0.0 inside application code. Ensure host binding is configured via container environment or orchestration layer."
+    severity: WARNING
+    languages: [python]
